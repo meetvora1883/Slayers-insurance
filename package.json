@@ -17,6 +17,7 @@
     "discord-api-types": "^0.38.20",
     "discord.js": "^14.21.0",
     "dotenv": "^17.2.1",
+    "express": "^5.1.0",
     "moment-timezone": "^0.6.0",
     "mongoose": "^8.17.1",
     "node-cron": "^4.2.1",
