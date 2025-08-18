@@ -1,8 +1,30 @@
 require('dotenv').config();
+const express = require('express');
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const mongoose = require('mongoose');
 const schedule = require('node-schedule');
 const moment = require('moment-timezone');
+
+// Initialize Express app for Render.com
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  const timestamp = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss');
+  res.status(200).json({
+    status: 'online',
+    bot: 'Car Insurance Tracker',
+    serverTime: timestamp,
+    uptime: process.uptime()
+  });
+});
+
+// Start Express server
+app.listen(PORT, () => {
+  const timestamp = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss');
+  console.log(`[${timestamp}] SERVER: Express server running on port ${PORT}`);
+});
 
 const client = new Client({
   intents: [
@@ -14,14 +36,40 @@ const client = new Client({
   ]
 });
 
+// Enhanced logging system
+class Logger {
+  static log(message, type = 'info') {
+    const timestamp = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss');
+    const logTypes = {
+      info: `\x1b[36m[${timestamp}] INFO: \x1b[0m${message}`,
+      success: `\x1b[32m[${timestamp}] SUCCESS: \x1b[0m${message}`,
+      warning: `\x1b[33m[${timestamp}] WARNING: \x1b[0m${message}`,
+      error: `\x1b[31m[${timestamp}] ERROR: \x1b[0m${message}`,
+      debug: `\x1b[35m[${timestamp}] DEBUG: \x1b[0m${message}`
+    };
+    console.log(logTypes[type] || logTypes.info);
+  }
+
+  static database(message, operation) {
+    const timestamp = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss');
+    console.log(`\x1b[34m[${timestamp}] DATABASE ${operation ? `(${operation})` : ''}: \x1b[0m${message}`);
+  }
+
+  static startup(message) {
+    const timestamp = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss');
+    console.log(`\x1b[35m[${timestamp}] STARTUP: \x1b[0m${message}`);
+  }
+}
+
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(() => {
-  log('MongoDB connected successfully');
+  Logger.database('Connected successfully', 'CONNECT');
 }).catch(err => {
-  errorLog(`MongoDB connection error: ${err.message}`);
+  Logger.error(`Connection error: ${err.message}`, 'CONNECT');
+  process.exit(1);
 });
 
 // Database Schema
@@ -35,21 +83,6 @@ const carInsuranceSchema = new mongoose.Schema({
 const CarInsurance = mongoose.model('CarInsurance', carInsuranceSchema);
 
 // Helper Functions
-function log(message) {
-  const timestamp = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss');
-  console.log(`[${timestamp}] LOG: ${message}`);
-}
-
-function errorLog(message) {
-  const timestamp = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss');
-  console.error(`[${timestamp}] ERROR: ${message}`);
-}
-
-function successLog(message) {
-  const timestamp = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss');
-  console.log(`[${timestamp}] SUCCESS: ${message}`);
-}
-
 function checkRoles(member) {
   const requiredRoles = [
     process.env.ADMIN_ROLE_ID,
@@ -91,10 +124,10 @@ rule.tz = 'Asia/Kolkata';
 
 schedule.scheduleJob(rule, async () => {
   try {
-    log('Running scheduled insurance check');
+    Logger.log('Running scheduled insurance check', 'info');
     const alertChannel = client.channels.cache.get(process.env.ALERT_CHANNEL_ID);
     if (!alertChannel) {
-      errorLog('Alert channel not found');
+      Logger.error('Alert channel not found', 'SCHEDULED TASK');
       return;
     }
 
@@ -142,21 +175,23 @@ schedule.scheduleJob(rule, async () => {
           embeds: [embed]
         });
       }
-      successLog(`Sent alert for ${alertList.length} cars in ${carChunks.length} parts`);
+      Logger.log(`Sent alert for ${alertList.length} cars in ${carChunks.length} parts`, 'success');
     } else {
-      log('No expiring insurances found');
+      Logger.log('No expiring insurances found', 'info');
     }
   } catch (err) {
-    errorLog(`Scheduled task error: ${err.message}`);
+    Logger.error(`Scheduled task error: ${err.message}`, 'SCHEDULED TASK');
   }
 });
 
 // Bot Events
 client.on('ready', () => {
-  log(`Bot successfully logged in as ${client.user.tag}`);
+  Logger.startup(`Bot logged in as ${client.user.tag}`);
+  Logger.startup(`Serving ${client.guilds.cache.size} guild(s)`);
+  
   client.application.commands.set(commands, process.env.GUILD_ID)
-    .then(() => successLog('Slash commands registered'))
-    .catch(err => errorLog(`Command registration failed: ${err.message}`));
+    .then(() => Logger.log('Slash commands registered', 'success'))
+    .catch(err => Logger.error(`Command registration failed: ${err.message}`, 'COMMAND SETUP'));
 });
 
 client.on('interactionCreate', async interaction => {
@@ -189,9 +224,9 @@ client.on('interactionCreate', async interaction => {
           }
           
           await interaction.respond(options);
-          log(`Autocomplete for ${command}: ${options.length} options shown`);
+          Logger.database(`Autocomplete for ${command}: ${options.length} options shown`, 'QUERY');
         } catch (err) {
-          errorLog(`Autocomplete error: ${err.message}`);
+          Logger.error(`Autocomplete error: ${err.message}`, 'AUTOCOMPLETE');
           await interaction.respond([]);
         }
       }
@@ -199,11 +234,14 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.isCommand()) {
+      Logger.log(`Command received: /${interaction.commandName} from ${interaction.user.tag}`, 'info');
+      
       if (!checkRoles(interaction.member)) {
         await interaction.reply({
           content: '⛔ ACCESS DENIED: You lack required permissions',
           ephemeral: true
         });
+        Logger.log(`Permission denied for ${interaction.user.tag} on /${interaction.commandName}`, 'warning');
         return;
       }
 
@@ -235,7 +273,7 @@ client.on('interactionCreate', async interaction => {
       }
     }
   } catch (err) {
-    errorLog(`Interaction error: ${err.message}`);
+    Logger.error(`Interaction error: ${err.message}`, 'INTERACTION');
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
         content: '❌ SYSTEM ERROR: Command processing failed',
@@ -281,7 +319,7 @@ async function handleNewCarInsurance(interaction) {
     });
 
     await newInsurance.save();
-    successLog(`New insurance added: ${carName} (${numberPlate}) by ${interaction.user.tag}`);
+    Logger.database(`New insurance added: ${carName} (${numberPlate}) by ${interaction.user.tag}`, 'INSERT');
     
     await interaction.reply({
       embeds: [new EmbedBuilder()
@@ -312,8 +350,9 @@ async function handleNewCarInsurance(interaction) {
         ],
         ephemeral: true
       });
+      Logger.database(`Duplicate entry attempt: ${numberPlate} by ${interaction.user.tag}`, 'DUPLICATE');
     } else {
-      errorLog(`New car insurance error: ${err.message}`);
+      Logger.error(`New car insurance error: ${err.message}`, 'NEW INSURANCE');
       throw err;
     }
   }
@@ -359,7 +398,7 @@ async function handleAddCarInsurance(interaction) {
     car.expiryDate = newExpiry.toDate();
     car.lastUpdated = new Date();
     await car.save();
-    successLog(`Insurance extended: ${car.carName} (${numberPlate}) by ${daysToAdd} days`);
+    Logger.database(`Insurance extended: ${car.carName} (${numberPlate}) by ${daysToAdd} days`, 'UPDATE');
 
     await interaction.reply({
       embeds: [new EmbedBuilder()
@@ -379,7 +418,7 @@ async function handleAddCarInsurance(interaction) {
       ]
     });
   } catch (err) {
-    errorLog(`Add insurance error: ${err.message}`);
+    Logger.error(`Add insurance error: ${err.message}`, 'EXTEND INSURANCE');
     throw err;
   }
 }
@@ -439,7 +478,7 @@ async function handleLessCarInsurance(interaction) {
     car.expiryDate = newExpiry.toDate();
     car.lastUpdated = new Date();
     await car.save();
-    successLog(`Insurance reduced: ${car.carName} (${numberPlate}) by ${daysToSubtract} days`);
+    Logger.database(`Insurance reduced: ${car.carName} (${numberPlate}) by ${daysToSubtract} days`, 'UPDATE');
 
     await interaction.reply({
       embeds: [new EmbedBuilder()
@@ -459,7 +498,7 @@ async function handleLessCarInsurance(interaction) {
       ]
     });
   } catch (err) {
-    errorLog(`Less insurance error: ${err.message}`);
+    Logger.error(`Less insurance error: ${err.message}`, 'REDUCE INSURANCE');
     throw err;
   }
 }
@@ -555,9 +594,9 @@ async function handleListCarInsurance(interaction) {
       });
     }
 
-    successLog(`Insurance list viewed by ${interaction.user.tag}`);
+    Logger.log(`Insurance list viewed by ${interaction.user.tag} (${cars.length} entries)`, 'info');
   } catch (err) {
-    errorLog(`List insurance error: ${err.message}`);
+    Logger.error(`List insurance error: ${err.message}`, 'LIST INSURANCE');
     throw err;
   }
 }
@@ -570,6 +609,7 @@ async function handleAlertInsurance(interaction) {
         content: '❌ Alert channel not configured',
         ephemeral: true
       });
+      Logger.error('Alert channel not found in manual alert', 'ALERT');
       return;
     }
 
@@ -637,9 +677,9 @@ async function handleAlertInsurance(interaction) {
       ephemeral: true
     });
     
-    successLog(`Manual alert triggered by ${interaction.user.tag}`);
+    Logger.log(`Manual alert triggered by ${interaction.user.tag} for ${expiringCars.length} cars`, 'info');
   } catch (err) {
-    errorLog(`Alert insurance error: ${err.message}`);
+    Logger.error(`Alert insurance error: ${err.message}`, 'MANUAL ALERT');
     await interaction.reply({
       content: '❌ Failed to send alert',
       ephemeral: true
@@ -716,7 +756,7 @@ async function handleDMCarInsuranceList(interaction) {
           try {
             await targetUser.send({ embeds: [embed] });
             if (index === 0) {
-              successLog(`Insurance list sent to ${targetUser.tag} by ${interaction.user.tag}`);
+              Logger.log(`Insurance list sent to ${targetUser.tag} by ${interaction.user.tag}`, 'info');
             }
           } catch (err) {
             await interaction.editReply({
@@ -728,7 +768,7 @@ async function handleDMCarInsuranceList(interaction) {
               ],
               ephemeral: true
             });
-            errorLog(`Failed to DM ${targetUser.tag}: ${err.message}`);
+            Logger.error(`Failed to DM ${targetUser.tag}: ${err.message}`, 'DM');
             return;
           }
         }
@@ -744,7 +784,7 @@ async function handleDMCarInsuranceList(interaction) {
         
         await m.delete().catch(() => {});
       } catch (err) {
-        errorLog(`DM collection error: ${err.message}`);
+        Logger.error(`DM collection error: ${err.message}`, 'DM COLLECT');
       }
     });
 
@@ -758,7 +798,7 @@ async function handleDMCarInsuranceList(interaction) {
     });
 
   } catch (err) {
-    errorLog(`DM insurance error: ${err.message}`);
+    Logger.error(`DM insurance error: ${err.message}`, 'DM INSURANCE');
     await interaction.editReply({
       embeds: [new EmbedBuilder()
         .setTitle('❌ ERROR')
@@ -846,7 +886,7 @@ async function handleDMAlertCarInsurance(interaction) {
           try {
             await targetUser.send({ embeds: [embed] });
             if (index === 0) {
-              successLog(`Insurance alerts sent to ${targetUser.tag} by ${interaction.user.tag}`);
+              Logger.log(`Insurance alerts sent to ${targetUser.tag} by ${interaction.user.tag}`, 'info');
             }
           } catch (err) {
             await interaction.editReply({
@@ -858,7 +898,7 @@ async function handleDMAlertCarInsurance(interaction) {
               ],
               ephemeral: true
             });
-            errorLog(`Failed to DM ${targetUser.tag}: ${err.message}`);
+            Logger.error(`Failed to DM ${targetUser.tag}: ${err.message}`, 'DM ALERT');
             return;
           }
 
@@ -890,7 +930,7 @@ async function handleDMAlertCarInsurance(interaction) {
         
         await m.delete().catch(() => {});
       } catch (err) {
-        errorLog(`DM alert collection error: ${err.message}`);
+        Logger.error(`DM alert collection error: ${err.message}`, 'DM ALERT COLLECT');
       }
     });
 
@@ -904,7 +944,7 @@ async function handleDMAlertCarInsurance(interaction) {
     });
 
   } catch (err) {
-    errorLog(`DM alert insurance error: ${err.message}`);
+    Logger.error(`DM alert insurance error: ${err.message}`, 'DM ALERT INSURANCE');
     await interaction.editReply({
       embeds: [new EmbedBuilder()
         .setTitle('❌ ERROR')
@@ -944,6 +984,7 @@ async function handleRemoveCarInsurance(interaction) {
         ],
         ephemeral: true
       });
+      Logger.log(`Failed removal attempt by ${interaction.user.tag} (wrong password)`, 'warning');
       return;
     }
 
@@ -960,7 +1001,7 @@ async function handleRemoveCarInsurance(interaction) {
       return;
     }
 
-    successLog(`Insurance removed: ${car.carName} (${numberPlate}) by ${interaction.user.tag}`);
+    Logger.database(`Insurance removed: ${car.carName} (${numberPlate}) by ${interaction.user.tag}`, 'DELETE');
     await interaction.reply({
       embeds: [new EmbedBuilder()
         .setTitle('🗑️ INSURANCE REMOVED')
@@ -977,7 +1018,7 @@ async function handleRemoveCarInsurance(interaction) {
       ]
     });
   } catch (err) {
-    errorLog(`Remove insurance error: ${err.message}`);
+    Logger.error(`Remove insurance error: ${err.message}`, 'REMOVE INSURANCE');
     throw err;
   }
 }
@@ -1087,7 +1128,33 @@ const commands = [
 ];
 
 // Start Bot
-client.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
-  errorLog(`Login failed: ${err.message}`);
+client.login(process.env.DISCORD_BOT_TOKEN)
+  .then(() => Logger.startup('Bot is now running'))
+  .catch(err => {
+    Logger.error(`Login failed: ${err.message}`, 'STARTUP');
+    process.exit(1);
+  });
+
+// Process termination handlers
+process.on('SIGTERM', () => {
+  Logger.log('Received SIGTERM - Shutting down gracefully', 'info');
+  client.destroy();
+  mongoose.connection.close();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  Logger.log('Received SIGINT - Shutting down gracefully', 'info');
+  client.destroy();
+  mongoose.connection.close();
+  process.exit(0);
+});
+
+process.on('unhandledRejection', (err) => {
+  Logger.error(`Unhandled rejection: ${err.message}`, 'UNHANDLED REJECTION');
+});
+
+process.on('uncaughtException', (err) => {
+  Logger.error(`Uncaught exception: ${err.message}`, 'UNCAUGHT EXCEPTION');
   process.exit(1);
 });
