@@ -125,14 +125,20 @@ dailyUpdateRule.tz = 'Asia/Kolkata';
 schedule.scheduleJob(dailyUpdateRule, async () => {
   try {
     Logger.log('Running daily insurance update', 'info');
+    Logger.debug('Fetching all car insurances from database...');
     
     // Get all active insurances
     const cars = await CarInsurance.find();
+    Logger.debug(`Found ${cars.length} car insurances to update`);
     
     // Update each insurance's expiry date (decrease by 1 day)
     for (const car of cars) {
       const currentExpiry = moment(car.expiryDate).tz('Asia/Kolkata');
       const newExpiry = currentExpiry.subtract(1, 'days');
+      
+      Logger.debug(`Updating ${car.carName} (${car.numberPlate}): 
+        Old expiry: ${currentExpiry.format('DD MMM YYYY')}
+        New expiry: ${newExpiry.format('DD MMM YYYY')}`);
       
       car.expiryDate = newExpiry.toDate();
       car.lastUpdated = new Date();
@@ -154,8 +160,11 @@ schedule.scheduleJob(dailyUpdateRule, async () => {
       return daysLeft <= 3;
     });
 
+    Logger.debug(`Found ${alertList.length} cars needing attention after update`);
+    
     if (alertList.length > 0) {
       const carChunks = chunkArray([...alertList], 10);
+      Logger.debug(`Splitting alert list into ${carChunks.length} chunks`);
       
       for (const [index, chunk] of carChunks.entries()) {
         const embed = new EmbedBuilder()
@@ -287,6 +296,9 @@ client.on('interactionCreate', async interaction => {
         case 'remove_car_insurance':
           await handleRemoveCarInsurance(interaction);
           break;
+        case 'ping':
+          await handlePingCommand(interaction);
+          break;
       }
     }
   } catch (err) {
@@ -304,6 +316,37 @@ client.on('interactionCreate', async interaction => {
     }
   }
 });
+
+async function handlePingCommand(interaction) {
+  try {
+    const timestamp = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss');
+    const uptime = process.uptime();
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+    
+    await interaction.reply({
+      embeds: [new EmbedBuilder()
+        .setTitle('🏓 PONG!')
+        .setColor(0x00FF00)
+        .addFields(
+          { name: '🕒 Server Time', value: timestamp, inline: true },
+          { name: '⏱️ Uptime', value: `${hours}h ${minutes}m ${seconds}s`, inline: true },
+          { name: '📊 Memory Usage', value: `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`, inline: true }
+        )
+        .setFooter({ text: 'Car Insurance Tracker Bot' })
+      ],
+      ephemeral: true
+    });
+    Logger.log(`Ping command executed by ${interaction.user.tag}`, 'info');
+  } catch (err) {
+    Logger.error(`Ping command error: ${err.message}`, 'PING');
+    await interaction.reply({
+      content: '❌ Failed to process ping command',
+      ephemeral: true
+    });
+  }
+}
 
 async function handleNewCarInsurance(interaction) {
   const carName = interaction.options.getString('car_name');
@@ -771,7 +814,10 @@ async function handleDMCarInsuranceList(interaction) {
           });
 
           try {
-            await targetUser.send({ embeds: [embed] });
+            await targetUser.send({ 
+              content: index === 0 ? `Here is the complete car insurance list (${cars.length} vehicles in ${carChunks.length} parts):` : `Part ${index + 1} of ${carChunks.length}`,
+              embeds: [embed]
+            });
             if (index === 0) {
               Logger.log(`Insurance list sent to ${targetUser.tag} by ${interaction.user.tag}`, 'info');
             }
@@ -901,7 +947,10 @@ async function handleDMAlertCarInsurance(interaction) {
 
           // Send to mentioned user
           try {
-            await targetUser.send({ embeds: [embed] });
+            await targetUser.send({ 
+              content: index === 0 ? `Here are the expiring car insurances (${expiringCars.length} vehicles in ${carChunks.length} parts):` : `Part ${index + 1} of ${carChunks.length}`,
+              embeds: [embed]
+            });
             if (index === 0) {
               Logger.log(`Insurance alerts sent to ${targetUser.tag} by ${interaction.user.tag}`, 'info');
             }
@@ -1141,6 +1190,10 @@ const commands = [
         required: true
       }
     ]
+  },
+  {
+    name: 'ping',
+    description: 'Check bot status and response time'
   }
 ];
 
