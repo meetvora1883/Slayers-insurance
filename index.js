@@ -172,7 +172,7 @@ schedule.scheduleJob(dailyUpdateRule, async () => {
           .setColor(0xFF0000)
           .setDescription(index === 0 ? `**${alertList.length} CAR${alertList.length > 1 ? 'S' : ''} NEED ATTENTION!**` : '')
           .setFooter({ text: `Daily update at ${moment().tz('Asia/Kolkata').format('DD MMM YYYY hh:mm A')}` })
-          .setThumbnail('https://i.imgur.com/7X8CQyG.png');
+          .setThumbnail('https://cdn.discordapp.com/attachments/1395239890588799128/1407301018588545144/file_00000000bea8622f9b87bdfc3ad9115e.png?ex=68a59ab5&is=68a44935&hm=3668c48fbf895816ce1cf7ae4f6206c5c02e6f849d9db59bbc2c82ebdaad98a3&');
 
         chunk.forEach(car => {
           const daysLeft = getDaysLeft(car.expiryDate);
@@ -385,7 +385,7 @@ async function handleNewCarInsurance(interaction) {
       embeds: [new EmbedBuilder()
         .setTitle('✅ NEW INSURANCE REGISTERED')
         .setColor(0x00FF00)
-        .setThumbnail('https://i.imgur.com/JQ6Y5zD.png')
+        .setThumbnail('https://cdn.discordapp.com/attachments/1395239890588799128/1407301018588545144/file_00000000bea8622f9b87bdfc3ad9115e.png?ex=68a59ab5&is=68a44935&hm=3668c48fbf895816ce1cf7ae4f6206c5c02e6f849d9db59bbc2c82ebdaad98a3&')
         .addFields(
           { name: '🚗 Car Name', value: carName, inline: true },
           { name: '🔢 Number Plate', value: numberPlate, inline: true },
@@ -464,7 +464,7 @@ async function handleAddCarInsurance(interaction) {
       embeds: [new EmbedBuilder()
         .setTitle('🔄 INSURANCE EXTENDED')
         .setColor(0x00FF00)
-        .setThumbnail('https://i.imgur.com/JQ6Y5zD.png')
+        .setThumbnail('https://cdn.discordapp.com/attachments/1395239890588799128/1407301018588545144/file_00000000bea8622f9b87bdfc3ad9115e.png?ex=68a59ab5&is=68a44935&hm=3668c48fbf895816ce1cf7ae4f6206c5c02e6f849d9db59bbc2c82ebdaad98a3&')
         .addFields(
           { name: '🚗 Car Name', value: car.carName, inline: true },
           { name: '🔢 Number Plate', value: numberPlate, inline: true },
@@ -544,7 +544,7 @@ async function handleLessCarInsurance(interaction) {
       embeds: [new EmbedBuilder()
         .setTitle('⚠️ INSURANCE REDUCED')
         .setColor(0xFFA500)
-        .setThumbnail('https://i.imgur.com/7X8CQyG.png')
+        .setThumbnail('https://cdn.discordapp.com/attachments/1395239890588799128/1407301018588545144/file_00000000bea8622f9b87bdfc3ad9115e.png?ex=68a59ab5&is=68a44935&hm=3668c48fbf895816ce1cf7ae4f6206c5c02e6f849d9db59bbc2c82ebdaad98a3&')
         .addFields(
           { name: '🚗 Car Name', value: car.carName, inline: true },
           { name: '🔢 Number Plate', value: numberPlate, inline: true },
@@ -587,7 +587,7 @@ async function handleListCarInsurance(interaction) {
       const embed = new EmbedBuilder()
         .setTitle(index === 0 ? '📋 INSURANCE REGISTRY' : `📋 INSURANCE REGISTRY (PART ${index + 1})`)
         .setColor(0x1E90FF)
-        .setThumbnail(index === 0 ? 'https://i.imgur.com/JQ6Y5zD.png' : null)
+        .setThumbnail(index === 0 ? 'https://cdn.discordapp.com/attachments/1395239890588799128/1407301018588545144/file_00000000bea8622f9b87bdfc3ad9115e.png?ex=68a59ab5&is=68a44935&hm=3668c48fbf895816ce1cf7ae4f6206c5c02e6f849d9db59bbc2c82ebdaad98a3&' : null)
         .setFooter({ 
           text: index === 0 ? `Total Vehicles: ${cars.length} • ${moment().tz('Asia/Kolkata').format('DD MMM YYYY hh:mm A')}` : `Part ${index + 1} of ${carChunks.length}`,
           iconURL: index === 0 ? 'https://i.imgur.com/7X8CQyG.png' : null
@@ -796,7 +796,7 @@ async function handleDMCarInsuranceList(interaction) {
             .setDescription(index === 0 ? `**Current insurance status as of ${moment().tz('Asia/Kolkata').format('DD MMM YYYY hh:mm A')}**` : '')
             .setFooter({ 
               text: index === 0 ? `Total Vehicles: ${cars.length}` : `Part ${index + 1} of ${carChunks.length}`,
-              iconURL: index === 0 ? 'https://i.imgur.com/7X8CQyG.png' : null
+              iconURL: index === 0 ? 'https://cdn.discordapp.com/attachments/1395239890588799128/1407301018588545144/file_00000000bea8622f9b87bdfc3ad9115e.png?ex=68a59ab5&is=68a44935&hm=3668c48fbf895816ce1cf7ae4f6206c5c02e6f849d9db59bbc2c82ebdaad98a3&' : null
             });
 
           chunk.forEach(car => {
